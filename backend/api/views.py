@@ -1,11 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import logging
 
-from .utils import extract_text, extract_table_data
-
-logger = logging.getLogger(__name__)
+from api.utils.ocr_engine import extract_text
+from api.utils.aggregator import build_final_output
 
 
 class UploadPDFView(APIView):
@@ -20,24 +18,32 @@ class UploadPDFView(APIView):
             )
 
         try:
-            file.seek(0)  # safe reset
+            file.seek(0)
 
-            # extract text
+            print("FILE:", file.name)
+
+            # STEP 1: OCR
             text = extract_text(file)
 
-            # extract structured data
-            table_data = extract_table_data(text)
+            print("TEXT TYPE:", type(text))
+            print("TEXT:", text[:500])  # avoid huge logs
+
+            # STEP 2: AI parsing
+            result = build_final_output(text)
+            print("PARSED DATA:", result)
+
+            print("RESULT TYPE:", type(result))
+            print("RESULT:", result)
 
             return Response({
                 "filename": file.name,
                 "raw_text": text,
-                "table_data": table_data
+                "structured_data": result
             })
 
         except Exception as e:
-            logger.error(f"PDF upload failed: {str(e)}")
-
-            return Response({
-                "error": str(e),
-                "type": type(e).__name__
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": str(e)},
+                status=500
+            )
+        
